@@ -1,0 +1,147 @@
+---
+title: Reanalysis of the Whole Systems Demonstrator (WSD) Telecare Questionnaire Study
+toc: True
+output: pdf_document
+fig_caption: yes
+---
+
+```{r setup, echo = F}
+knitr::opts_chunk$set(echo = F)
+da=readRDS("wsd_crt_imputed_all_time3_otc_correct_Jan_2022.RDS")
+sda=subset(da,WithdrawalCode%in%c(0,1,5,7,9,11,14,16,18,20))
+mm=model.matrix(~as.factor(sda$ethnicity)-1)
+colnames(mm)=paste0("eth",1:2)
+sda=cbind(sda,mm)
+hm=model.matrix(~as.factor(sda$highest_ed_A1)-1)
+colnames(hm)=paste0("edu",0:4)
+sda=cbind(sda,hm)
+xnames=c("Gender","Age","IMDSCORE", "NF_comorb",
+paste0("eth",1),paste0("edu",0:3),
+"hhld_adults","PCS12b")
+tr.name="TAA_ITT"
+cluster.name="GP"
+y.name=c("PCS12")
+uc=sort(unique(sda[,cluster.name]))
+luc=length(uc)
+tp=tapply(sda[,cluster.name],sda[,tr.name],function(x){length(unique(x))})
+tc=table(sda[,cluster.name],sda[,tr.name])
+sc=round(summary(tc[which(tc[,1]!=0),1]),2)
+st=round(summary(tc[which(tc[,2]!=0),2]),2)
+n=nrow(sda)
+tt=table(sda[,tr.name])
+indt=which(sda[,tr.name]==1)
+indc=which(sda[,tr.name]==0)
+mt=table(is.na(sda$PCS12[indt]))
+mc=table(is.na(sda$PCS12[indc]))
+syt=round(tapply(sda[,y.name],sda[,tr.name],mean,na.rm=T),2)
+sysd=round(tapply(sda[,y.name],sda[,tr.name],sd,na.rm=T),2)
+```
+
+```{r hist,fig.cap="Histograms and QQ normal plots of the physical quality of life outcome (PCS), assessed by the Short Form 12-item Survey (SF-12) in the Whole Systems Demonstrator (WSD) Telecare Questionnaire Study."}
+par(mfrow=c(3,2))
+hist(sda[,y.name],las=1,xlab="",main="All",xlim=c(0,55))
+qqnorm(sda[,y.name],las=1,xlab="",xlim=c(-3.3,3.3),main="")
+qqline(sda[,y.name])
+hist(sda[sda[,tr.name]==1,y.name],las=1,xlab="",main="Treatment",xlim=c(0,55))
+qqnorm(sda[sda[,tr.name]==1,y.name],las=1,xlab="",xlim=c(-3.3,3.3),main="")
+qqline(sda[sda[,tr.name]==1,y.name])
+hist(sda[sda[,tr.name]==0,y.name],las=1,xlab="",main="Control",xlim=c(0,55))
+qqnorm(sda[sda[,tr.name]==0,y.name],las=1,xlab="",xlim=c(-3.3,3.3),main="")
+qqline(sda[sda[,tr.name]==0,y.name])
+```
+
+To illustrate our methodology in a real-world trial setting, we reanalyzed the Whole Systems Demonstrator (WSD) Telecare Questionnaire Study, which is a pragmatic cluster-randomized WSD telecare trial conducted to compare participant-reported outcomes between home-based telecare with the usual care across three local authority sites in England. In the study, participants registered within a particular general practice, and the general practice (cluster) is the unit of randomization. There are `r luc` clusters, `r tp[2]` in the telecare arm, and `r tp[1]` in the usual care arm. The cluster sizes of the telecare group ranged from `r st[1]` to `r st[6]` with an average value of `r st[4]`, and the cluster sizes in the usual care group ranged from `r sc[1]` to `r sc[6]` with an average value of `r sc[4]`. For missing data on the baseline covariates and outcomes not due to death, moving to residential or nursing care or seriously deteriorated health (considered as sources of truncation), we used multiple imputation to impute a single dataset to fill in missing entries.
+
+In this study, we examined the outcome: the physical quality of life outcome (PCS) of $1126$ participants. The PCS was as assessed by the Short Form 12-item Survey (SF-12). The outcome measures for the trial were collected at the baseline and also at 12 months, which was the final time of data collection. However, those outcomes were not measured if participants withdrew from the study. The main reasons for formal withdrawal included death, moving to residential or nursing care, and deterioration in condition (physical or mental capacity). Among the `r tt[2]` participants in the telecare arm, `r mt[2]` (`r round(100*mt[2]/sum(mt),2)`\%) of the outcomes were truncated due to the above reasons. In the usual care arm, 
+`r mc[2]` (`r round(100*mc[2]/sum(mc),2)`\%) of the `r tt[1]` outcomes were truncated due to the above reasons (in this illustrative example, we do not further differentiate these specific reasons and consider them collectively as truncation). The telecare arm has a slightly higher mean and standard deviation of the PCS outcome, `r syt[2]` vs. `r syt[1]` and `r sysd[2]` vs. `r sysd[1]`. Figure 1 shows the histograms and the QQ normal plots of the outcome for all participants and also by arms.	
+
+
+```{r}
+source('fecode.R')
+source('mecode.R')
+source('me2code.R')
+source('bfun.R')
+sda1=subset(sda,TAA_ITT==1)
+tcid=sort(unique(sda1[,cluster.name]))
+ltcid=length(tcid)
+n1=nrow(sda1)
+sda0=subset(sda,TAA_ITT==0)
+ccid=sort(unique(sda0[,cluster.name]))
+lccid=length(ccid)
+n0=nrow(sda0)
+fso=round(fsfun(sda,y.name,tr.name,xnames),2)
+cso=round(csfun(sda,y.name,tr.name,xnames,cluster.name),2)
+rso=round(rcsfun(sda,y.name,tr.name,xnames,cluster.name),2)
+```
+
+Each participant's demographic information was also recorded, including age, gender, ethnicity, number of co-morbid conditions, level of education, and the Index of Multiple Deprivation score based on their postcode at the time of enrollment into the trial. We apply the 
+proposed approaches (ME2 and ME) and the fixed-effects approach (FE)
+to analyze the PCS outcome adjusting for these baseline covariates and also the baseline measurement of PCS. The estimated outcome model ICC's are `r rso[2]` and `r cso[2]` from the ME2 and ME approaches, and the estimated ICC of the strata membership is `r rso[3]` by the ME2 approach.
+
+```{r}
+library(doParallel)
+ncc=detectCores()
+nbp=10
+cl=makeCluster(ncc)
+registerDoParallel(cl)
+fs=foreach(icount(nbp),.combine='rbind',.multicombine=T,.maxcombine=nbp,
+.errorhandling ="remove") %dopar% {
+ind1=sample(n1,n1,replace=T)
+ind0=sample(n0,n0,replace=T)
+fsfun(rbind(sda1[ind1,],sda0[ind0,]),y.name,tr.name,xnames)}
+stopCluster(cl) 
+cl=makeCluster(ncc)
+registerDoParallel(cl)
+cs=foreach(icount(nbp),.combine='rbind',.multicombine=T,.maxcombine=nbp,
+.errorhandling ="remove") %dopar% {
+source("mecode.R")
+source("bfun.R")
+s1=sample(tcid,ltcid,replace=T)
+s0=sample(ccid,lccid,replace=T)
+bda1=bda0=NULL
+for(jj in 1:ltcid){
+da1j=subset(sda1,GP==s1[jj])
+da1j$bcid=jj
+bda1=rbind(bda1,da1j)}
+for(kk in 1:lccid){
+da0k=subset(sda0,GP==s0[kk])
+da0k$bcid=kk
+bda0=rbind(bda0,da0k)}
+csfun(rbind(bda1,bda0),y.name,tr.name,xnames,"bcid")}
+stopCluster(cl) 
+cl=makeCluster(ncc)
+registerDoParallel(cl)
+rs=foreach(icount(nbp),.combine='rbind',.multicombine=T,.maxcombine=nbp,
+.errorhandling ="remove") %dopar% {
+s1=sample(tcid,ltcid,replace=T)
+s0=sample(ccid,lccid,replace=T)
+bda1=bda0=NULL
+for(jj in 1:ltcid){
+da1j=subset(sda1,GP==s1[jj])
+da1j$bcid=jj
+bda1=rbind(bda1,da1j)}
+for(kk in 1:lccid){
+da0k=subset(sda0,GP==s0[kk])
+da0k$bcid=kk
+bda0=rbind(bda0,da0k)}
+rcsfun(rbind(bda1,bda0),y.name,tr.name,xnames,"bcid")}
+stopCluster(cl) 
+
+pb=c(0.025,0.975)
+bfs=round(apply(fs,2,quantile,prob=pb)[,1],2)
+bcs=round(apply(cs,2,quantile,prob=pb)[,1],2)
+brs=round(apply(rs,2,quantile,prob=pb)[,1],2)
+```
+
+Table 1 shows the SACE estimates together with their $95\%$ confidence intervals based on `r nbp` bootstrap replicates. We randomly sample the treated clusters and the control clusters separately. For each bootstrap sample, we fit the model and obtain the SACE estimate. The  $95\%$ confidence intervals are obtained from the $2.5\%$ and the $97.5\%$ quantiles of the bootstrap estimates.  Across the three methods, all confidence intervals include zero. 
+
+```{r sace}
+est=c(fso[1],cso[1],rso[1])
+bci=c(paste0("(",bfs[1],",",bfs[2],")"),
+paste0("(",bcs[1],",",bcs[2],")"),
+paste0("(",brs[1],",",brs[2],")"))
+ma=rbind(est,bci)
+rownames(ma)=c("Estimate","95 % Confidence interval")
+kable(ma,'simple',caption="Estimation of the SACE by the proposed mixed-effects (ME2 and ME) approach and the fixed effects approach (FE) in the WSD telecare trial",
+col.names=c("ME2","ME","FE"),row.names=T)
+```
